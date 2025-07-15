@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel - Kirana Korner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-green-700 text-white px-6 py-5 shadow-md">
+    <div class="max-w-5xl mx-auto">
+      <h1 class="text-2xl sm:text-3xl font-bold">🛠 Admin Panel</h1>
+      <p class="text-sm opacity-80">Manage products for Sharma Ji's Kirana Store</p>
+    </div>
+  </header>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed top-5 right-5 text-white px-4 py-2 rounded shadow-md z-50 transition-all duration-300"></div>
+
+  <!-- Main Content -->
+  <main class="max-w-5xl mx-auto px-4 py-10 space-y-10">
+
+    <!-- Add/Edit Product Section -->
+    <section class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+      <h2 id="formTitle" class="text-xl font-semibold text-green-700 mb-4">➕ Add New Product</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <input type="hidden" id="editId" />
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">Product Name</label>
+          <input id="name" placeholder="e.g. Basmati Rice" class="input" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">Price (₹)</label>
+          <input id="price" type="number" placeholder="e.g. 120" class="input" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">Unit</label>
+          <input id="unit" placeholder="e.g. kg, L, piece" class="input" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">Category</label>
+          <input id="category" placeholder="e.g. Grains" class="input" />
+        </div>
+        <div class="flex flex-col gap-1 sm:col-span-2">
+          <label class="text-sm font-medium text-gray-700">Available Units</label>
+          <input id="availableUnits" placeholder="e.g. kg, gram" class="input" />
+        </div>
+        <div class="flex items-center gap-2 sm:col-span-2">
+          <input type="checkbox" id="inStock" class="w-4 h-4 text-green-600 rounded border-gray-300" checked />
+          <label for="inStock" class="text-sm text-gray-700">In Stock</label>
+        </div>
+      </div>
+      <div class="mt-6 flex flex-col sm:flex-row gap-4">
+        <button id="submitBtn" onclick="submitForm()" class="btn-primary w-full sm:w-auto">➕ Add Product</button>
+        <button onclick="resetForm()" class="btn-secondary w-full sm:w-auto hidden" id="cancelEditBtn">Cancel Edit</button>
+      </div>
+    </section>
+
+    <!-- Product List Section -->
+    <section class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+      <h2 class="text-xl font-semibold text-green-700 mb-4">📦 Product List</h2>
+      <ul id="productList" class="space-y-0 border border-gray-300 divide-y divide-gray-300 rounded-lg overflow-hidden">
+        <!-- Product items will be injected here -->
+      </ul>
+    </section>
+  </main>
+
+  <!-- Styles -->
+  <style>
+    .input {
+      @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500;
+    }
+    .btn-primary {
+      @apply bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded-md shadow-md transition-all duration-200 ease-in-out transform hover:scale-105;
+    }
+    .btn-secondary {
+      @apply bg-gray-300 hover:bg-gray-400 text-black font-medium px-4 py-2 rounded-md shadow-sm transition;
+    }
+    .btn-edit {
+      @apply bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-md shadow-md transition;
+    }
+    .btn-danger {
+      @apply bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-md shadow-md transition;
+    }
+  </style>
+
+  <!-- Script -->
+  <script>
+    let products = [];
+
+    function showToast(message, isError = false) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.className = `${isError ? 'bg-red-600' : 'bg-green-600'} block fixed top-5 right-5 text-white px-4 py-2 rounded shadow-md z-50`;
+      setTimeout(() => toast.className = "hidden", 3000);
+    }
+
+    function loadProducts() {
+      const stored = localStorage.getItem("products");
+      products = stored ? JSON.parse(stored) : [];
+      renderProducts();
+    }
+
+    function saveProducts() {
+      localStorage.setItem("products", JSON.stringify(products));
+    }
+
+    function submitForm() {
+      const id = document.getElementById("editId").value;
+      const name = document.getElementById("name").value.trim();
+      const price = parseFloat(document.getElementById("price").value.trim());
+      const unit = document.getElementById("unit").value.trim();
+      const category = document.getElementById("category").value.trim();
+      const availableUnitsRaw = document.getElementById("availableUnits").value.trim();
+      const inStock = document.getElementById("inStock").checked;
+
+      if (!name || isNaN(price) || !unit || !category || !availableUnitsRaw) {
+        showToast("Please fill all fields correctly.", true);
+        return;
+      }
+
+      const availableUnits = availableUnitsRaw.split(",").map(u => u.trim());
+
+      if (id) {
+        // Edit existing product
+        const index = products.findIndex(p => p.id === parseInt(id));
+        if (index !== -1) {
+          products[index] = { id: parseInt(id), name, price, unit, category, availableUnits, inStock };
+          showToast("Product updated.");
+        }
+      } else {
+        // Add new product
+        const newId = products.length ? Math.max(...products.map(p => p.id)) + 1 : 1;
+        products.push({ id: newId, name, price, unit, category, availableUnits, inStock });
+        showToast("Product added successfully!");
+      }
+
+      saveProducts();
+      renderProducts();
+      resetForm();
+    }
+
+    function editProduct(id) {
+      const product = products.find(p => p.id === id);
+      if (!product) return;
+
+      document.getElementById("formTitle").textContent = "✏️ Edit Product";
+      document.getElementById("submitBtn").textContent = "Update Product";
+      document.getElementById("cancelEditBtn").classList.remove("hidden");
+
+      document.getElementById("editId").value = product.id;
+      document.getElementById("name").value = product.name;
+      document.getElementById("price").value = product.price;
+      document.getElementById("unit").value = product.unit;
+      document.getElementById("category").value = product.category;
+      document.getElementById("availableUnits").value = product.availableUnits.join(", ");
+      document.getElementById("inStock").checked = product.inStock;
+    }
+
+    function resetForm() {
+      document.getElementById("formTitle").textContent = "➕ Add New Product";
+      document.getElementById("submitBtn").textContent = "➕ Add Product";
+      document.getElementById("cancelEditBtn").classList.add("hidden");
+
+      ["editId", "name", "price", "unit", "category", "availableUnits"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      document.getElementById("inStock").checked = true;
+    }
+
+    function deleteProduct(id) {
+      if (!confirm("Are you sure you want to delete this product?")) return;
+      products = products.filter(p => p.id !== id);
+      saveProducts();
+      renderProducts();
+      showToast("Product deleted.");
+      resetForm();
+    }
+
+    function renderProducts() {
+      const list = document.getElementById("productList");
+      if (products.length === 0) {
+        list.innerHTML = `<li class="text-gray-500 italic p-4">No products added yet.</li>`;
+        return;
+      }
+
+      list.innerHTML = products.map(p => `
+        <li class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white">
+          <div class="border border-gray-300 p-3 rounded-md">
+            <p class="font-semibold text-lg">${p.name}</p>
+            <p class="text-sm text-gray-600">
+              ₹${p.price}/${p.unit} • ${p.category}<br/>
+              Units: ${p.availableUnits.join(", ")}<br/>
+              <span class="${p.inStock ? 'text-green-600' : 'text-red-600'} font-medium">
+                ${p.inStock ? '✔️ In Stock' : '❌ Out of Stock'}
+              </span>
+            </p>
+          </div>
+          <div class="flex items-center justify-end space-x-2 border border-gray-300 p-3 rounded-md">
+            <button onclick="editProduct(${p.id})" class="btn-edit">Edit</button>
+            <button onclick="deleteProduct(${p.id})" class="btn-danger">Delete</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    loadProducts();
+  </script>
+
+</body>
+</html>
